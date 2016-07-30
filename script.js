@@ -222,7 +222,89 @@ var changeNoteStateHandler = function(){
         $(this).val('');
     },
 
-    noteTextInitialValues = [];
+    noteTextInitialValues = [],
+
+    getPasswordClickHandler = function(){
+        $(this).hide();
+        $('.send-password-form').show();
+    },
+
+    sendPasswordClickHandler = function(){
+        //TODO email validation
+
+        var email = $('.email-field').val();
+
+        if (!email) {
+            alert('Email should not be empty.');
+            return;
+        }
+
+        $.ajax({
+            url: '/',
+            method: "POST",
+            data: {
+                action: 'sendPasswordByEmail',
+                email: email
+            },
+            success: function(result,status,xhr){
+                if (!result) {
+                    alert('An error occurred');
+                }
+                alert('Password sent. Please login at the right side. Thank you.');
+                $('.send-password-form').hide();
+            }
+        });
+    },
+
+    showLoginFormLinkClickHandler = function(){
+        $(this).hide();
+        $('.login-form').show();
+    },
+
+    loginButtonClickHandler = function(){
+        var login = $('.login-field').val(),
+            password = $('.password-field').val();
+
+        //TODO email validation
+        if (!login && !password) {
+            alert('Email and should not be empty.');
+            return;
+        }
+
+        $.ajax({
+            url: '/',
+            method: "POST",
+            data: {
+                action: 'checkLoginAndPassword',
+                login: login,
+                password: password
+            },
+            success: function(result,status,xhr){
+                if (!result) {
+                    alert('Incorrect login or password');
+                    return;
+                }
+                window.location.replace('/');
+            }
+        });
+    },
+
+    logoutClickHandler = function(){
+        $.ajax({
+            url: '/',
+            method: "POST",
+            data: {
+                action: 'logout'
+            },
+            success: function(result,status,xhr){
+                if (!result) {
+                    alert('An error iccurred.');
+                    return;
+                }
+                window.location.replace('/');
+            }
+        });
+    };
 
 const enterKey = 13,
     escapeKey = 27;
@@ -234,4 +316,12 @@ $(function(){
     $('.add-note').click(addNoteHandler);
     $('.update-note').click(updateNoteHandler);
     $('.delete-note').click(deleteNoteHandler);
+
+    $('.get-password').click(getPasswordClickHandler);
+    $('.send-password').click(sendPasswordClickHandler);
+    
+    $('.show-login-form-link').click(showLoginFormLinkClickHandler);
+    $('.login-button').click(loginButtonClickHandler);
+
+    $('.logout').click(logoutClickHandler);
 });

@@ -1,3 +1,12 @@
 .update-note {
     visibility: hidden;
 }
+
+.send-password-form, .login-form {
+    display: none;
+}
+
+.show-login-form-link, .login-form, .logout {
+    position: absolute;
+    right: 0;
+}
