@@ -9,6 +9,6 @@
 $pdo = new PDO(
     'mysql:host=localhost;dbname=todo',
     'root',
-    '123456',
+    'hFg5DseT',
     array(PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8")
 );
