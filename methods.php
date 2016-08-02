@@ -1,26 +1,36 @@
 <?php
-/**
- * Created by PhpStorm.
- * User: xitroff
- * Date: 29.07.16
- * Time: 19:55
- */
+
 function updateNote($noteId, $text)
 {
     require('config.php');
     $userId = getUserId();
-    if (empty($userId) || empty($noteId) || empty($text)) {
+    $listId = getListIdByNoteId($noteId);
+    if (empty($userId) || empty($listId) || !listBelongsToUser($listId) || empty($noteId) || empty($text)) {
         return null;
     }
     $query = "UPDATE `note` 
               SET `text` = :text 
-              WHERE `user_id` = :user_id 
-              AND `id` = :note_id";
+              WHERE `id` = :note_id";
     $stmt = $pdo->prepare($query);
     $result = $stmt->execute([
         ':note_id' => $noteId,
-        ':user_id' => $userId,
         ':text' => $text,
+    ]);
+    return $result;
+}
+
+function deleteList($listId)
+{
+    require('config.php');
+    $userId = getUserId();
+    if (empty($userId) || empty($listId) || !listBelongsToUser($listId)) {
+        return null;
+    }
+    $query = "DELETE FROM `list` 
+              WHERE `id` = :list_id";
+    $stmt = $pdo->prepare($query);
+    $result = $stmt->execute([
+        ':list_id' => $listId,
     ]);
     return $result;
 }
@@ -29,29 +39,28 @@ function deleteNote($noteId)
 {
     require('config.php');
     $userId = getUserId();
-    if (empty($userId) || empty($noteId)) {
+    $listId = getListIdByNoteId($noteId);
+    if (empty($userId) || empty($listId) || !listBelongsToUser($listId) || empty($noteId)) {
         return null;
     }
     $query = "DELETE FROM `note` 
-              WHERE `user_id` = :user_id 
-              AND `id` = :note_id";
+              WHERE `id` = :note_id";
     $stmt = $pdo->prepare($query);
     $result = $stmt->execute([
         ':note_id' => $noteId,
-        ':user_id' => $userId,
     ]);
     return $result;
 }
 
-function getNotes()
+function getLists()
 {
     require('config.php');
     $userId = getUserId();
     if (empty($userId)) {
         return null;
     }
-    $query = "SELECT `id`, `text`, `done`
-                  FROM `note`
+    $query = "SELECT `id`, `name`
+                  FROM `list`
                   WHERE `user_id` = :user_id";
     $stmt = $pdo->prepare($query);
     $stmt->execute([
@@ -60,20 +69,98 @@ function getNotes()
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function addNote($text)
+function getNotes()
+{
+    $lists = getLists();
+    if (empty($lists)) {
+        return null;
+    }
+    $notes = array();
+    foreach ($lists as $listItem) {
+        $listId = $listItem['id'];
+        $listName = $listItem['name'];
+        $currentListNotes = getNotesByListId($listId);
+        $notes[$listId] = array(
+            'listName' => $listName,
+            'notes' => $currentListNotes ? $currentListNotes : array(),
+        );
+    }
+    return $notes;
+}
+
+function getNotesByListId($listId, $undone = false)
 {
     require('config.php');
     $userId = getUserId();
-    if (empty($userId) || empty($text)) {
+    if (empty($userId)) {
+        return null;
+    }
+    if ($undone) {
+        $query = "SELECT `id`, `text`, `done`
+                  FROM `note`
+                  WHERE `list_id` = :list_id
+                  AND `done` = 0";
+    } else {
+        $query = "SELECT `id`, `text`, `done`
+                  FROM `note`
+                  WHERE `list_id` = :list_id";
+    }
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([
+        ':list_id' => $listId,
+    ]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function getListIdByNoteId($noteId)
+{
+    require('config.php');
+    $query = "SELECT `list_id`
+                  FROM `note`
+                  WHERE `id` = :note_id";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([
+        ':note_id' => $noteId,
+    ]);
+    return $stmt->fetch(PDO::FETCH_ASSOC)['list_id'];
+}
+
+function listBelongsToUser($listId, $userId = null)
+{
+    require('config.php');
+    !$userId ? $userId = getUserId() : '';
+    if (empty($userId) || empty($listId)) {
+        return null;
+    }
+    $query = "SELECT `user_id` 
+              FROM `list`
+              WHERE `id` = :list_id";
+    $stmt = $pdo->prepare($query);
+    $result = $stmt->execute([
+        ':list_id' => $listId,
+    ]);
+
+    if (!$result) {
+        return null;
+    }
+
+    return $stmt->fetch(PDO::FETCH_ASSOC)['user_id'] == $userId;
+}
+
+function addNote($text, $listId, $userId = null)
+{
+    require('config.php');
+    !$userId ? $userId = getUserId() : '';
+    if (empty($userId) || !listBelongsToUser($listId, $userId) || empty($text) || empty($listId)) {
         return null;
     }
     $query = "INSERT INTO `note`
-                  (`text`, `user_id`)
-                  VALUES (:text, :user_id)";
+                  (`list_id`, `text`)
+                  VALUES (:list_id, :text)";
     $stmt = $pdo->prepare($query);
     $result = $stmt->execute([
+        ':list_id' => $listId,
         ':text' => $text,
-        ':user_id' => $userId,
     ]);
     if ($result) {
         return $pdo->lastInsertId();
@@ -86,17 +173,16 @@ function updateNoteState($noteId, $state = null)
 {
     require('config.php');
     $userId = getUserId();
-    if (empty($userId)) {
+    $listId = getListIdByNoteId($noteId);
+    if (empty($userId) || empty($listId) || !listBelongsToUser($listId)) {
         return null;
     }
     $query = "UPDATE `note` 
               SET `done` = :state 
-              WHERE `user_id` = :user_id 
-              AND `id` = :note_id";
+              WHERE `id` = :note_id";
     $stmt = $pdo->prepare($query);
     $result = $stmt->execute([
         ':note_id' => $noteId,
-        ':user_id' => $userId,
         ':state' => $state ? 1 : 0,
     ]);
     return $result;
@@ -124,7 +210,10 @@ function getUserId()
     $rowCount = $stmt->rowCount();
     if ($rowCount == 1) {
         return $stmt->fetch(PDO::FETCH_ASSOC)['id'];
+    } elseif ($rowCount > 1) {
+        throw new Exception('More than one user with equal token.');
     }
+    return false;
 }
 
 function userEmailAndPasswordExists()
@@ -143,7 +232,7 @@ function userEmailAndPasswordExists()
     ]);
 
     if (!$result) {
-        throw new Exception('Error while retriving user wemail and password.');
+        throw new Exception('Error while retriving user email and password.');
     }
 
     $rowCount = $stmt->rowCount();
@@ -176,7 +265,14 @@ function processPostAction()
                 die(updateNoteState($noteId, $state));
             case 'addNote':
                 $text = $_POST['text'];
-                die(addNote($text));
+                $listId = $_POST['listId'];
+                die(addNote($text, $listId));
+            case 'deleteList':
+                $listId = $_POST['listId'];
+                die(deleteList($listId));
+            case 'addList':
+                $listName = $_POST['listName'];
+                die(addList($listName));
             case 'sendPasswordByEmail':
                 $email = $_POST['email'];
                 die(sendPasswordByEmail($email));
@@ -207,6 +303,7 @@ function selectAndDisplayTemplates()
             include('templates/getPasswordByEmailAndLogin.php');
         }
         include('templates/notes.php');
+        include('templates/addNewList.php');
     }
 }
 
@@ -262,6 +359,50 @@ function generateTokenValue()
     return sha1(rand(0, 1000)) . sha1(time()) . sha1(rand(0, 1000)) . sha1(rand(0, 1000));
 }
 
+function addList($listName, $userId = null)
+{
+    require('config.php');
+    !$userId ? $userId = getUserId() : '';
+    if (empty($userId) || empty($listName)) {
+        return null;
+    }
+    $query = "INSERT INTO `list` 
+                (`name`, `user_id`)
+                VALUES (:name, :user_id)";
+    $stmt = $pdo->prepare($query);
+    $result = $stmt->execute([
+        ':name' => $listName,
+        ':user_id' => $userId,
+    ]);
+    if ($result) {
+        return $pdo->lastInsertId();
+    } else {
+        return null;
+    }
+}
+
+function createDefaultNotesListForNewUser($userId, $notesListName = 'Notes')
+{
+    require('config.php');
+    $listId = addList($notesListName, $userId);
+    if (!$listId) {
+        throw new Exception('Can not create default notes list for new user.');
+    }
+    createDefaultNoteForNewUser($listId, $userId);
+}
+
+function createDefaultNoteForNewUser($listId, $userId, $text = 'Your first note')
+{
+    require('config.php');
+    if (empty($listId)) {
+        return null;
+    }
+    $noteId = addNote($text, $listId, $userId);
+    if (!$noteId) {
+        throw new Exception('Can not create default note for new user.');
+    }
+}
+
 function registerNewUser()
 {
     require('config.php');
@@ -277,9 +418,11 @@ function registerNewUser()
         ':token' => $token,
     ]);
 
-    if ($result) {
+    $userId = $pdo->lastInsertId();
+    if ($result && $userId)  {
         $oneWeek = 60 * 60 * 24 * 7;
         setcookie('token', $token, time() + $oneWeek);
+        createDefaultNotesListForNewUser($userId);
     } else {
         throw new Exception('Can not create new user.');
     }

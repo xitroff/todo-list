@@ -4,7 +4,8 @@
 var changeNoteStateHandler = function(){
         var noteId = $(this).val(),
             state = $(this).prop('checked') ? 1 : 0,
-            li = $(this).parent();
+            li = $(this).parent(),
+            showDoneState = li.parent().parent().find('.show-done').prop('checked') ? 1 : 0;
 
         if (!noteId) {
             alert('An error occurred');
@@ -24,10 +25,23 @@ var changeNoteStateHandler = function(){
                     alert('An error occurred');
                 }
                 if (state) {
-                    $(li).hide(1500);
+                    if (!$(li).hasClass('hidden-note')) {
+                        $(li).addClass('hidden-note');
+                    }
+                    if (showDoneState) {
+                        $(li).show();
+                    }
+                } else {
+                    if ($(li).hasClass('hidden-note')) {
+                        $(li).removeClass('hidden-note');
+                    }
                 }
             }
         });
+    },
+
+    showDoneHandler = function(){
+        $(this).parent().find('.hidden-note').toggle();
     },
 
     updateNote = function(noteId, noteText){
@@ -89,19 +103,47 @@ var changeNoteStateHandler = function(){
             }
         });
     },
-    appendNewNote = function(noteId, noteText){
+
+    deleteListHandler = function(event){
+        var listId = $(this).parent().attr('data-list_id'),
+            parent = $(this).parent(),
+            h3 = parent.prev();;
+
+        if (!listId) {
+            alert('An error occurred');
+            return;
+        }
+
+        $.ajax({
+            url: '/',
+            method: "POST",
+            data: {
+                action: 'deleteList',
+                listId: listId
+            },
+            success: function(result,status,xhr){
+                if (result) {
+                    parent.remove();
+                    h3.remove();
+                } else {
+                    alert('An error occurred');
+                }
+            }
+        });
+    },
+
+    appendNewNote = function(noteId, noteText, ul){
         if (!noteId) {
             return;
         }
-        var ul = $('.notes-list'),
-            li = '<li data-note_id="'+noteId+'" class="notes-list-item">\
-                            <input type="checkbox" class="note-done" value="'+noteId+'" name="noteId" />\
+        var li = '<li data-note_id="'+noteId+'" class="notes-list-item">\
+                            <input type="checkbox" class="note-done" value="'+noteId+'" name="noteId" /> \
                             <input type="text" value="'+noteText+'" class="note-text" />\
-                            <input type="submit" value="Save" class="update-note" />\
-                            <input type="submit" value="Delete" class="delete-note" />\
+                            <input type="button" value="Save" class="update-note" />\
+                            <input type="button" value="Delete" class="delete-note" />\
                            </li>';
         $(ul).append(li);
-        var latestLi = $('.notes-list-item').last();
+        var latestLi = $(ul).last();
         latestLi.find('.note-done').change(changeNoteStateHandler);
         latestLi.find('.note-text').keyup(noteTextKeyUpHandler).focus(noteTextFocusHandler).focusout(noteTextFocusOutHandler);
         latestLi.find('.update-note').click(updateNoteHandler);
@@ -109,7 +151,42 @@ var changeNoteStateHandler = function(){
         $('.new-note-text').val('');
     },
 
-    addNote = function(noteText){
+    appendNewList = function(listId, listName){
+    if (!listId || !listName) {
+        return;
+    }
+
+        var h3 = '<h3>'+listName+'</h3>',
+            listIdDiv = '<div data-list_id="'+listId+'">\
+            \
+            <button type="button" class="delete-list btn btn-default btn-sm">\
+                <span class="glyphicon glyphicon-remove"></span> Remove list\
+            </button>\
+            \
+                        <ul class="notes-list"></ul>\
+                        <label for="text">New note: </label>\
+                        <input type="text" class="new-note-text" />\
+                        <input type="button" class="add-note" value="Add" />\
+                        \
+                        <input type="checkbox" class="show-done" /> Show done\
+                        \
+                    </div>';
+
+        $('#accordion').append(h3, listIdDiv);
+        $("#accordion").accordion("refresh");
+
+        $('.new-list-name').val('');
+
+        var latestDiv = $('[data-list_id='+listId+']');
+
+        $(latestDiv).find('.new-note-text').keyup(newNoteTextKeyUpHandler).focusout(newNoteTextFocusOutHandler);
+        $(latestDiv).find('.add-note').click(addNoteHandler);
+
+        $(latestDiv).find('.delete-list').click(deleteListHandler);
+        $(latestDiv).find('.show-done').change(showDoneHandler);
+},
+
+    addNote = function(noteText, listId, ul){
         if (!noteText) {
             alert('Note text should not be empty');
             return null;
@@ -123,7 +200,8 @@ var changeNoteStateHandler = function(){
             async: false,
             data: {
                 action: 'addNote',
-                text: noteText
+                text: noteText,
+                listId: listId
             },
             success: function(result,status,xhr){
                 if (!result) {
@@ -133,12 +211,46 @@ var changeNoteStateHandler = function(){
             }
         });
 
-        appendNewNote(noteId, noteText);
+        appendNewNote(noteId, noteText, ul);
     },
 
-    addNoteHandler = function(event){
-        var noteText = $(this).prev().val();
-        addNote(noteText);
+    addList = function(listName){
+        if (!listName) {
+            alert('Note text should not be empty');
+            return null;
+        }
+
+        var listId = 0;
+
+        $.ajax({
+            url: '/',
+            method: "POST",
+            async: false,
+            data: {
+                action: 'addList',
+                listName: listName
+            },
+            success: function(result,status,xhr){
+                if (!result) {
+                    alert('An error occurred');
+                }
+                listId = result;
+            }
+        });
+
+        appendNewList(listId, listName);
+    },
+
+    addNoteHandler = function(){
+        var noteText = $(this).prev().val(),
+            listId = $(this).parent().attr('data-list_id'),
+            ul = $(this).parent().find('ul');
+        addNote(noteText, listId, ul);
+    },
+
+    addListHandler = function(){
+        var listName = $(this).prev().val();
+        addList(listName);
     },
 
     noteTextKeyUpHandler = function(eventData){
@@ -167,6 +279,17 @@ var changeNoteStateHandler = function(){
             });
         }
     },
+
+    listNameKeyUpHandler = function(eventData){
+    var listName = $(this).val();
+
+    if (eventData.keyCode === enterKey) {
+        addList(listName);
+        $(this).val('').blur();
+    } else if (eventData.keyCode === escapeKey) {
+        $(this).val('').blur();
+    }
+},
 
     noteTextFocusHandler = function(){
         $(this).parent().find('.update-note').css({
@@ -206,8 +329,10 @@ var changeNoteStateHandler = function(){
     newNoteTextKeyUpHandler = function(eventData){
 
         if (eventData.keyCode === enterKey) {
-            var noteText = $(this).val();
-            addNote(noteText);
+            var noteText = $(this).val(),
+                listId = $(this).parent().attr('data-list_id'),
+                ul = $(this).parent().find('ul');
+            addNote(noteText, listId, ul);
             $(this).blur();
         } else if (eventData.keyCode === escapeKey) {
             $(this).val('').blur();
@@ -216,8 +341,10 @@ var changeNoteStateHandler = function(){
 
     newNoteTextFocusOutHandler = function(eventData){
         if ($(eventData.relatedTarget).hasClass('add-note')) {
-            var noteText = $(this).val();
-            addNote(noteText);
+            var noteText = $(this).val(),
+                listId = $(this).parent().attr('data-list_id'),
+                ul = $(this).parent().find('ul');
+            addNote(noteText, listId, ul);
         }
         $(this).val('');
     },
@@ -317,6 +444,12 @@ $(function(){
     $('.update-note').click(updateNoteHandler);
     $('.delete-note').click(deleteNoteHandler);
 
+    $('.add-list').click(addListHandler);
+    $('.new-list-name').keyup(listNameKeyUpHandler);
+    $('.delete-list').click(deleteListHandler);
+
+    $('.show-done').change(showDoneHandler);
+
     $('.get-password').click(getPasswordClickHandler);
     $('.send-password').click(sendPasswordClickHandler);
     
@@ -324,4 +457,10 @@ $(function(){
     $('.login-button').click(loginButtonClickHandler);
 
     $('.logout').click(logoutClickHandler);
+
+    $( "#accordion" ).accordion({
+        heightStyle: "content",
+        autoHeight: false,
+        clearStyle: true,
+    });
 });
