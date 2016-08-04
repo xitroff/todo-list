@@ -2,7 +2,7 @@
     visibility: hidden;
 }
 
-.get-password, .send-password-form {
+.get-password, .send-password-form, .telegram-promo {
     float: left;
 }
 

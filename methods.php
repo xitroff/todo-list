@@ -378,6 +378,7 @@ function selectAndDisplayTemplates()
 
     if (checkLoggedIn()) {
         if (userEmailAndPasswordExists()) {
+            include('templates/telegramPromo.php');
             include('templates/logout.php');
         } else {
             include('templates/getPasswordByEmailAndLogin.php');
