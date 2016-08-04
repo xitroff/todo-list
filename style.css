@@ -2,7 +2,7 @@
     visibility: hidden;
 }
 
-.get-password {
+.get-password, .send-password-form {
     float: left;
 }
 

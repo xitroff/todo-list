@@ -19,13 +19,15 @@ function updateNote($noteId, $text)
     return $result;
 }
 
-function deleteList($listId)
+function deleteList($listId, $token = null)
 {
     require('config.php');
-    $userId = getUserId();
-    if (empty($userId) || empty($listId) || !listBelongsToUser($listId)) {
+    $userId = $token ? getUserId($token) : getUserId();
+
+    if (empty($userId) || empty($listId) || !listBelongsToUser($listId, $userId)) {
         return null;
     }
+
     $query = "DELETE FROM `list` 
               WHERE `id` = :list_id";
     $stmt = $pdo->prepare($query);
@@ -35,12 +37,12 @@ function deleteList($listId)
     return $result;
 }
 
-function deleteNote($noteId)
+function deleteNote($noteId, $token = null)
 {
     require('config.php');
-    $userId = getUserId();
+    $userId = $token ? getUserId($token) : getUserId();
     $listId = getListIdByNoteId($noteId);
-    if (empty($userId) || empty($listId) || !listBelongsToUser($listId) || empty($noteId)) {
+    if (empty($userId) || empty($listId) || !listBelongsToUser($listId, $userId) || empty($noteId)) {
         return null;
     }
     $query = "DELETE FROM `note` 
@@ -52,10 +54,10 @@ function deleteNote($noteId)
     return $result;
 }
 
-function getLists()
+function getLists($token = null)
 {
     require('config.php');
-    $userId = getUserId();
+    $userId = $token ? getUserId($token) : getUserId();
     if (empty($userId)) {
         return null;
     }
@@ -86,6 +88,77 @@ function getNotes()
         );
     }
     return $notes;
+}
+
+function getNotesByListName($listName, $token = null)
+{
+    require('config.php');
+    $userId = $token ? getUserId($token) : getUserId();
+    if (empty($userId) || empty($listName)) {
+        return null;
+    }
+    $query = "SELECT `note`.`id`, `text`, `done`
+                  FROM `note`
+                  JOIN `list`
+                  ON `note`.`list_id` = `list`.`id`
+                  WHERE `list`.`name` = :list_name
+                  AND `list`.`user_id` = :user_id";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([
+        ':list_name' => $listName,
+        ':user_id' => $userId,
+    ]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function getListIdByName($listName, $token)
+{
+    require('config.php');
+    if (empty($listName) || empty($token)) {
+        return null;
+    }
+    $userId = getUserId($token);
+    if (empty($userId)) {
+        return null;
+    }
+    $query = "SELECT `id`
+                  FROM `list`
+                  WHERE `name` = :list_name
+                  AND `user_id` = :user_id 
+                  LIMIT 1";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([
+        ':list_name' => $listName,
+        ':user_id' => $userId,
+    ]);
+    return $stmt->fetch(PDO::FETCH_ASSOC)['id'];
+}
+
+function getNoteIdByListIdAndNoteText($listId, $noteText, $token)
+{
+    require('config.php');
+    if (empty($listId) || empty($noteText) || empty($token)) {
+        return null;
+    }
+    $userId = getUserId($token);
+    if (empty($userId)) {
+        return null;
+    }
+    $query = "SELECT `note`.`id`
+                  FROM `note`
+                  JOIN `list`
+                  ON `note`.`list_id` = `list`.`id`
+                  WHERE `note`.`text` = :note_text
+                  AND `list_id` = :list_id
+                  AND `user_id` = :user_id 
+                  LIMIT 1";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([
+        ':note_text' => $noteText,
+        ':list_id' => $listId,
+        ':user_id' => $userId,
+    ]);
+    return $stmt->fetch(PDO::FETCH_ASSOC)['id'];
 }
 
 function getNotesByListId($listId, $undone = false)
@@ -128,7 +201,11 @@ function getListIdByNoteId($noteId)
 function listBelongsToUser($listId, $userId = null)
 {
     require('config.php');
-    !$userId ? $userId = getUserId() : '';
+
+    if (!$userId) {
+        $userId = getUserId();
+    }
+
     if (empty($userId) || empty($listId)) {
         return null;
     }
@@ -188,13 +265,16 @@ function updateNoteState($noteId, $state = null)
     return $result;
 }
 
-function getUserId()
+function getUserId($token = null)
 {
     require('config.php');
-    if (!isset($_COOKIE['token'])) {
-        return false;
+
+    if (!$token) {
+        if (!isset($_COOKIE['token'])) {
+            return false;
+        }
+        $token = $_COOKIE['token'];
     }
-    $token = $_COOKIE['token'];
     $query = "SELECT `id` 
               FROM `user`
               WHERE `token` = :token";
@@ -337,7 +417,7 @@ function checkLoginAndPassword($login, $password) {
         $token = $stmt->fetch(PDO::FETCH_ASSOC)['token'];
         $oneWeek = 60 * 60 * 24 * 7;
         setcookie('token', $token, time() + $oneWeek);
-        return true;
+        return $token ? $token : null;
     }
     return null;
 }
@@ -511,4 +591,94 @@ function sendPasswordByEmail($email)
     $mailBody .= '<p>Please use it to login <a href="http://todo.hitrov.com">here</a>.</p>';
 
     return sendEmail($email, $subject, $mailHeader, $mailBody);
+}
+
+// API methods
+
+function requestApi($method, array $parameters)
+{
+    $url = 'http://www.todo-l.hitrov.com/api/?action='.$method;
+    $ch = curl_init( $url );
+
+    $curlOptions = array(
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $parameters,
+        CURLOPT_RETURNTRANSFER => true,
+    );
+
+    curl_setopt_array($ch, $curlOptions);
+    $result = curl_exec($ch);
+    curl_close($ch);
+
+    return $result;
+}
+
+function processApiRequestAction()
+{
+    if (isset($_REQUEST['action'])) {
+
+        switch ($_REQUEST['action']) {
+            case 'usernameExists':
+                $username = $_REQUEST['username'];
+                die(usernameExists($username));
+            case 'testAction':
+                die(json_encode($_REQUEST));
+            case 'checkLoginAndPassword':
+                $login = $_REQUEST['login'];
+                $password = $_REQUEST['password'];
+                die(checkLoginAndPassword($login, $password));
+            case 'getLists':
+                $token = $_REQUEST['token'];
+                $lists = getLists($token);
+                die(json_encode($lists));
+            case 'getNotesByListName':
+                $listName = $_REQUEST['listName'];
+                $token = $_REQUEST['token'];
+                $notes = getNotesByListName($listName, $token);
+                die(json_encode($notes));
+            case 'addList':
+                $listName = $_REQUEST['listName'];
+                $token = $_REQUEST['token'];
+                $userId = getUserId($token);
+                die(addList($listName, $userId));
+            case 'addNote':
+                $listName = $_REQUEST['listName'];
+                $token = $_REQUEST['token'];
+                $text = $_REQUEST['text'];
+                $listId = getListIdByName($listName, $token);
+                $userId = getUserId($token);
+                die(addNote($text, $listId, $userId));
+            case 'deleteList':
+                $listName = $_REQUEST['listName'];
+                $token = $_REQUEST['token'];
+                $listId = getListIdByName($listName, $token);
+                die(deleteList($listId, $token));
+            case 'deleteNote':
+                $token = $_REQUEST['token'];
+                $listName = $_REQUEST['listName'];
+                $listId = getListIdByName($listName, $token);
+                $noteText = $_REQUEST['noteText'];
+                $noteId = getNoteIdByListIdAndNoteText($listId, $noteText, $token);
+                die(deleteNote($noteId, $token));
+            default:
+                die;
+        }
+    }
+}
+
+function usernameExists($username)
+{
+    require('config.php');
+    if (empty($username)) {
+        return false;
+    }
+    $query = "SELECT `id` 
+              FROM `user`
+              WHERE `email` = :username";
+    $stmt = $pdo->prepare($query);
+    $result = $stmt->execute([
+        ':username' => $username,
+    ]);
+
+    return $result && $stmt->rowCount() == 1 && $stmt->fetch(PDO::FETCH_ASSOC)['id'];
 }
