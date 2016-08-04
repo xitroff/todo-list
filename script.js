@@ -280,6 +280,29 @@ var changeNoteStateHandler = function(){
         }
     },
 
+    emailFieldKeyUpHandler = function(eventData){
+
+        if (eventData.keyCode === enterKey) {
+            $('.send-password').trigger('click');
+        } else if (eventData.keyCode === escapeKey) {
+            $(this).val('');
+            $('.send-password-form').hide();
+            $('.get-password').show();
+        }
+    },
+
+    passwordFieldKeyUpHandler = function(eventData){
+
+        if (eventData.keyCode === enterKey) {
+            $('.login-button').trigger('click');
+        } else if (eventData.keyCode === escapeKey) {
+            $('.login-field').val('');
+            $(this).val('');
+            $('.login-form').hide();
+            $('.show-login-form-link').show();
+        }
+    },
+
     listNameKeyUpHandler = function(eventData){
     var listName = $(this).val();
 
@@ -449,6 +472,9 @@ $(function(){
     $('.delete-list').click(deleteListHandler);
 
     $('.show-done').change(showDoneHandler);
+
+    $('.email-field').keyup(emailFieldKeyUpHandler);
+    $('.password-field').keyup(passwordFieldKeyUpHandler);
 
     $('.get-password').click(getPasswordClickHandler);
     $('.send-password').click(sendPasswordClickHandler);
