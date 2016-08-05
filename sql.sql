@@ -3,7 +3,7 @@
 -- http://www.phpmyadmin.net
 --
 -- Host: 127.0.0.1
--- Generation Time: Aug 05, 2016 at 02:27 AM
+-- Generation Time: Aug 05, 2016 at 02:46 AM
 -- Server version: 5.6.24
 -- PHP Version: 7.0.7
 
@@ -30,7 +30,6 @@ CREATE TABLE `list` (
   `id` int(10) UNSIGNED NOT NULL,
   `name` varchar(64) NOT NULL,
   `user_id` int(10) UNSIGNED NOT NULL,
-  `date` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `date_updated` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -45,7 +44,6 @@ CREATE TABLE `note` (
   `list_id` int(10) UNSIGNED DEFAULT NULL,
   `text` varchar(256) NOT NULL,
   `done` tinyint(1) NOT NULL DEFAULT '0',
-  `date_created` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `date_updated` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -60,7 +58,6 @@ CREATE TABLE `user` (
   `email` varchar(128) DEFAULT NULL,
   `password` varchar(40) DEFAULT NULL,
   `token` varchar(160) DEFAULT NULL,
-  `date_created` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `date_updated` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -107,7 +104,7 @@ ALTER TABLE `note`
 -- AUTO_INCREMENT for table `user`
 --
 ALTER TABLE `user`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
 --
 -- Constraints for dumped tables
 --
