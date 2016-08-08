@@ -6,11 +6,11 @@
     float: left;
 }
 
-.send-password-form, .login-form, .hidden-note {
+.send-password-form, .login-form, .hidden-note, .date-time-div {
     display: none;
 }
 
-.show-login-form-link, .login-form, .logout {
+.show-login-form-link, .login-form, .logout, .show-done-div {
     float: right;
 }
 
@@ -23,6 +23,16 @@
 
 .delete-list {
     float: right;
+}
+
+.notes-list {
+    list-style-type: none;
+}
+
+.notify-edit {
+    font-size: 8px;
+    text-decoration: underline;
+    cursor: pointer;
 }
 
 @media screen and (max-width: 650px) {

@@ -1,4 +1,4 @@
 <?php
 
-require_once('../methods.php');
-processApiRequestAction();
+require_once('../autoload.php');
+$app = new Application($_REQUEST, 'api');

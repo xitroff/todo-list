@@ -8,7 +8,7 @@ var changeNoteStateHandler = function(){
             showDoneState = li.parent().parent().find('.show-done').prop('checked') ? 1 : 0;
 
         if (!noteId) {
-            alert('An error occurred');
+            $.notify(anErrorOccurred, {type:"danger"});
             return;
         }
 
@@ -20,10 +20,12 @@ var changeNoteStateHandler = function(){
                 noteId: noteId,
                 state: state
             },
-            success: function(result,status,xhr){
+            success: function(result){
                 if (!result) {
-                    alert('An error occurred');
+                    errorNotification("Error when updating note state!");
+                    return;
                 }
+                successNotification("Note state updated.");
                 if (state) {
                     if (!$(li).hasClass('hidden-note')) {
                         $(li).addClass('hidden-note');
@@ -40,18 +42,89 @@ var changeNoteStateHandler = function(){
         });
     },
 
+    notifyEditClickHandler = function(){
+        $(this).parent().find('.date-time-div').toggle();
+    },
+
+    notifyByTelegramHandler = function(){
+
+        var checkbox = $(this);
+
+        if (checkbox.prop('checked')) {
+
+            $.ajax({
+                url: '/',
+                method: "POST",
+                data: {
+                    action: 'userHasTelegram'
+                },
+                success: function(result){
+                    if (!result) {
+                        warningNotification('Please first authorize in Telegram Bot\'s chat');
+                        checkbox.prop( "checked", false );
+                    }
+                }
+            });
+        }
+    },
+
+    notifyMeHandler = function(){
+        var checkbox = $(this),
+            noteId = checkbox.parent().attr('data-note_id'),
+            dateTimeDiv = checkbox.parent().find('.date-time-div'),
+            initialValue = checkbox.attr('data-initial_value');
+
+        if (initialValue == '1' && !checkbox.prop('checked')) {
+            unsetNotification(noteId);
+            dateTimeDiv.parent().find('.notify-edit').remove();
+            if ($(dateTimeDiv).is(":visible")) {
+                dateTimeDiv.toggle();
+            }
+            return;
+        }
+
+        if (checkbox.prop('checked')) {
+
+            $.ajax({
+                url: '/',
+                method: "POST",
+                data: {
+                    action: 'userHasEmailOrTelegram'
+                },
+                success: function(result){
+                    if (!result) {
+                        warningNotification('Please first login with your email and (optional) authorize in Telegram Bot\'s chat');
+                        checkbox.prop( "checked", false );
+                        if (dateTimeDiv.css('display') !== 'none') {
+                            dateTimeDiv.toggle();
+                        }
+                        return;
+                    }
+                    dateTimeDiv.find('.time-input').clockpicker({
+                        autoclose: true,
+                        'default': 'now'
+                    });
+                    dateTimeDiv.find('.date-input').datepicker();
+                }
+            });
+        }
+
+        dateTimeDiv.toggle();
+    },
+
     showDoneHandler = function(){
-        $(this).parent().find('.hidden-note').toggle();
+        $(this).parent().parent().find('.hidden-note').toggle();
     },
 
     updateNote = function(noteId, noteText){
+
         if (!noteId) {
-            alert('An error occurred');
+            $.notify(anErrorOccurred, {type:"danger"});
             return;
         }
 
         if (!noteText) {
-            alert('Note text should not be empty');
+            warningNotification('Note text should not be empty');
             return;
         }
 
@@ -63,27 +136,29 @@ var changeNoteStateHandler = function(){
                 noteId: noteId,
                 text: noteText
             },
-            success: function(result,status,xhr){
+            success: function(result){
                 if (!result) {
-                    alert('An error occurred');
+                    errorNotification(anErrorOccurred);
+                    return;
                 }
+                successNotification('Note updated.');
             }
         });
     },
 
-    updateNoteHandler = function(event){
+    updateNoteHandler = function(){
         var noteId = $(this).parent().attr('data-note_id'),
             noteText = $(this).prev().val();
 
         updateNote(noteId, noteText);
     },
 
-    deleteNoteHandler = function(event){
+    deleteNoteHandler = function(){
         var noteId = $(this).parent().attr('data-note_id'),
             li = $(this).parent();
 
         if (!noteId) {
-            alert('An error occurred');
+            $.notify(anErrorOccurred, {type:"danger"});
             return;
         }
 
@@ -94,23 +169,24 @@ var changeNoteStateHandler = function(){
                 action: 'deleteNote',
                 noteId: noteId
             },
-            success: function(result,status,xhr){
+            success: function(result){
                 if (result) {
+                    successNotification('Note deleted.');
                     $(li).remove();
                 } else {
-                    alert('An error occurred');
+                    errorNotification(anErrorOccurred);
                 }
             }
         });
     },
 
-    deleteListHandler = function(event){
+    deleteListHandler = function(){
         var listId = $(this).parent().attr('data-list_id'),
             parent = $(this).parent(),
-            h3 = parent.prev();;
+            h3 = parent.prev();
 
         if (!listId) {
-            alert('An error occurred');
+            $.notify(anErrorOccurred, {type:"danger"});
             return;
         }
 
@@ -121,12 +197,13 @@ var changeNoteStateHandler = function(){
                 action: 'deleteList',
                 listId: listId
             },
-            success: function(result,status,xhr){
+            success: function(result){
                 if (result) {
+                    successNotification('List deleted.');
                     parent.remove();
                     h3.remove();
                 } else {
-                    alert('An error occurred');
+                    errorNotification(anErrorOccurred);
                 }
             }
         });
@@ -137,17 +214,39 @@ var changeNoteStateHandler = function(){
             return;
         }
         var li = '<li data-note_id="'+noteId+'" class="notes-list-item">\
-                            <input type="checkbox" class="note-done" value="'+noteId+'" name="noteId" /> \
-                            <input type="text" value="'+noteText+'" class="note-text" />\
-                            <input type="button" value="Save" class="update-note" />\
-                            <input type="button" value="Delete" class="delete-note" />\
-                           </li>';
+                        <input type="checkbox" class="note-done" value="'+noteId+'" name="noteId" /> \
+                        <input type="text" value="'+noteText+'" class="note-text" />\
+                        <input type="button" value="Save" class="update-note" />\
+                        <input type="button" value="Delete" class="delete-note" />\
+                        \
+                        <input type="checkbox" data-initial_value="0" class="notify-me" /> <span class="notify-text">Notify</span>\
+                        \
+                        \
+                        <div class="date-time-div">\
+                            <input type="text" placeholder="Set date"  class="date-input" />\
+                            <input type="text" placeholder="Set time" class="time-input" />\
+                            \
+                            <div class="notify-by-div">\
+                                <input type="checkbox" checked class="notify-by-email" /> Email\
+                                <input type="checkbox" class="notify-by-telegram" /> Telegram\
+                            </div>\
+                            \
+                            <button type="button" class="notify-ok btn btn-default btn-sm">\
+                                <span class="glyphicon glyphicon-ok"></span> Ok\
+                            </button>\
+                        </div>\
+                   </li>';
         $(ul).append(li);
-        var latestLi = $(ul).last();
+        var latestLi = $(ul).find('.notes-list-item').last();
         latestLi.find('.note-done').change(changeNoteStateHandler);
         latestLi.find('.note-text').keyup(noteTextKeyUpHandler).focus(noteTextFocusHandler).focusout(noteTextFocusOutHandler);
         latestLi.find('.update-note').click(updateNoteHandler);
         latestLi.find('.delete-note').click(deleteNoteHandler);
+
+        latestLi.find('.notify-me').change(notifyMeHandler);
+        latestLi.find('.notify-edit').click(notifyEditClickHandler);
+        latestLi.find('.notify-ok').click(notifyOkHandler);
+
         $('.new-note-text').val('');
     },
 
@@ -168,7 +267,9 @@ var changeNoteStateHandler = function(){
                         <input type="text" class="new-note-text" />\
                         <input type="button" class="add-note" value="Add" />\
                         \
-                        <input type="checkbox" class="show-done" /> Show done\
+                        <div class="show-done-div">\
+                            <input type="checkbox" class="show-done" /> Show done\
+                        </div>\
                         \
                     </div>';
 
@@ -187,8 +288,9 @@ var changeNoteStateHandler = function(){
 },
 
     addNote = function(noteText, listId, ul){
+
         if (!noteText) {
-            alert('Note text should not be empty');
+            warningNotification('Note text should not be empty');
             return null;
         }
 
@@ -203,10 +305,11 @@ var changeNoteStateHandler = function(){
                 text: noteText,
                 listId: listId
             },
-            success: function(result,status,xhr){
+            success: function(result){
                 if (!result) {
-                    alert('An error occurred');
+                    errorNotification(anErrorOccurred);
                 }
+                successNotification('Note has been created.');
                 noteId = result;
             }
         });
@@ -215,8 +318,9 @@ var changeNoteStateHandler = function(){
     },
 
     addList = function(listName){
+
         if (!listName) {
-            alert('Note text should not be empty');
+            warningNotification('List name should not be empty');
             return null;
         }
 
@@ -230,10 +334,11 @@ var changeNoteStateHandler = function(){
                 action: 'addList',
                 listName: listName
             },
-            success: function(result,status,xhr){
+            success: function(result){
                 if (!result) {
-                    alert('An error occurred');
+                    errorNotification(anErrorOccurred);
                 }
+                successNotification('List has been created.');
                 listId = result;
             }
         });
@@ -253,13 +358,98 @@ var changeNoteStateHandler = function(){
         addList(listName);
     },
 
+    notifyOkHandler = function(){
+
+        var dateTimeDiv = $(this).parent(),
+            li = dateTimeDiv.parent(),
+            notifyDate = dateTimeDiv.find('.date-input').val(),
+            notifyTime = dateTimeDiv.find('.time-input').val(),
+            parsedDate = Date.parse(notifyDate);
+
+        if (!parsedDate && !notifyTime) {
+            warningNotification('Please set the date and time.');
+            return;
+        }
+
+        if (!parsedDate) {
+            warningNotification('Please set the date.');
+            return;
+        }
+
+        if (!notifyTime) {
+            warningNotification('Please set the time.');
+            return;
+        }
+
+        var unixTimestamp = Date.parse(notifyDate + ' ' + notifyTime),
+            noteId = dateTimeDiv.parent().attr('data-note_id'),
+            byEmail = dateTimeDiv.find('.notify-by-email').prop('checked') ? 1 : 0,
+            byTelegram = dateTimeDiv.find('.notify-by-telegram').prop('checked') ? 1 : 0;
+
+
+        if (!unixTimestamp || !noteId) {
+            $.notify(anErrorOccurred, {type:"danger"});
+            return;
+        }
+
+        if (unixTimestamp < Date.parse(new Date)) {
+            warningNotification('Please set the date and time in the future.')
+            return;
+        }
+
+        $.ajax({
+            url: '/',
+            method: "POST",
+            data: {
+                action: 'setNotification',
+                noteId: noteId,
+                unixTimestamp: unixTimestamp / 1000,
+                byEmail: byEmail,
+                byTelegram: byTelegram
+            },
+            success: function(result){
+                if (!result) {
+                    errorNotification(anErrorOccurred);
+                    return;
+                }
+                successNotification('Notification has been set.');
+                dateTimeDiv.parent().find('.notify-text').after(' <span class="notify-edit">(edit)</span>');
+                dateTimeDiv.toggle();
+
+                li.find('.notify-me').attr('data-initial_value', 1);
+                li.find('.notify-edit').click(notifyEditClickHandler);
+            }
+        });
+
+    },
+
+    unsetNotification = function(noteId){
+
+        $.ajax({
+            url: '/',
+            method: "POST",
+            data: {
+                action: 'unsetNotification',
+                noteId: noteId
+            },
+            success: function(result){
+                if (!result) {
+                    errorNotification(anErrorOccurred);
+                    return;
+                }
+                successNotification('Notification removed.');
+            }
+        });
+
+    },
+
     noteTextKeyUpHandler = function(eventData){
         var noteId = $(this).parent().attr('data-note_id'),
             noteText = $(this).val();
 
         if (eventData.keyCode === enterKey) {
             if (!noteText) {
-                alert('Note text should not be empty');
+                warningNotification('Note text should not be empty');
                 return;
             }
             if (noteTextInitialValues[noteId] !== noteText) {
@@ -288,6 +478,16 @@ var changeNoteStateHandler = function(){
             $(this).val('');
             $('.send-password-form').hide();
             $('.get-password').show();
+        }
+    },
+
+    loginFieldKeyUpHandler = function(eventData){
+
+        if (eventData.keyCode === escapeKey) {
+            $(this).val('');
+            $('.password-field').val('');
+            $('.login-form').hide();
+            $('.show-login-form-link').show();
         }
     },
 
@@ -385,7 +585,7 @@ var changeNoteStateHandler = function(){
         var email = $('.email-field').val();
 
         if (!email) {
-            alert('Email should not be empty.');
+            warningNotification('Email should not be empty.');
             return;
         }
 
@@ -396,11 +596,12 @@ var changeNoteStateHandler = function(){
                 action: 'sendPasswordByEmail',
                 email: email
             },
-            success: function(result,status,xhr){
+            success: function(result){
                 if (!result) {
-                    alert('An error occurred');
+                    errorNotification(anErrorOccurred);
+                    return;
                 }
-                alert('Password sent. Please login at the right side. Thank you.');
+                successNotification('Password sent. Please login at the right side. Thank you.');
                 $('.send-password-form').hide();
             }
         });
@@ -417,7 +618,7 @@ var changeNoteStateHandler = function(){
 
         //TODO email validation
         if (!login && !password) {
-            alert('Email and should not be empty.');
+            warningNotification('Email and password should not be empty.');
             return;
         }
 
@@ -429,35 +630,37 @@ var changeNoteStateHandler = function(){
                 login: login,
                 password: password
             },
-            success: function(result,status,xhr){
+            success: function(result){
                 if (!result) {
-                    alert('Incorrect login or password');
+                    errorNotification('Incorrect login or password');
                     return;
                 }
-                window.location.replace('/');
+                Cookies.set('token', result, { expires: 7 });
+                Cookies.set('logged', 1, { expires: 7 });
+                successNotification('Authorized, please wait...');
+                setTimeout(function(){
+                    window.location.replace('/');
+                }, 1500);
             }
         });
     },
 
     logoutClickHandler = function(){
-        $.ajax({
-            url: '/',
-            method: "POST",
-            data: {
-                action: 'logout'
-            },
-            success: function(result,status,xhr){
-                if (!result) {
-                    alert('An error iccurred.');
-                    return;
-                }
-                window.location.replace('/');
-            }
-        });
-    };
+        Cookies.set('token', '');
+        Cookies.set('logged', '');
+        successNotification('Logging out, please wait...');
+        setTimeout(function(){
+            window.location.replace('/');
+        }, 1500);
+    },
+
+    errorNotification = function(msg){return $.notify(msg, {type:"danger"});},
+    warningNotification = function(msg){return $.notify(msg, {type:"warning"});},
+    successNotification = function(msg){return $.notify(msg, {type:"success"});};
 
 const enterKey = 13,
-    escapeKey = 27;
+    escapeKey = 27,
+    anErrorOccurred = 'An error occurred';
 
 $(function(){
     $('.note-done').change(changeNoteStateHandler);
@@ -474,6 +677,7 @@ $(function(){
     $('.show-done').change(showDoneHandler);
 
     $('.email-field').keyup(emailFieldKeyUpHandler);
+    $('.login-field').keyup(loginFieldKeyUpHandler);
     $('.password-field').keyup(passwordFieldKeyUpHandler);
 
     $('.get-password').click(getPasswordClickHandler);
@@ -484,9 +688,15 @@ $(function(){
 
     $('.logout').click(logoutClickHandler);
 
+    $('.notify-me').change(notifyMeHandler);
+    $('.notify-edit').click(notifyEditClickHandler);
+    $('.notify-ok').click(notifyOkHandler);
+
+    $('.notify-by-telegram').change(notifyByTelegramHandler);
+
     $( "#accordion" ).accordion({
         heightStyle: "content",
         autoHeight: false,
-        clearStyle: true,
+        clearStyle: true
     });
 });

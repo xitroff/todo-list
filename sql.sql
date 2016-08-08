@@ -3,7 +3,7 @@
 -- http://www.phpmyadmin.net
 --
 -- Host: 127.0.0.1
--- Generation Time: Aug 05, 2016 at 02:46 AM
+-- Generation Time: Aug 08, 2016 at 01:30 AM
 -- Server version: 5.6.24
 -- PHP Version: 7.0.7
 
@@ -44,6 +44,11 @@ CREATE TABLE `note` (
   `list_id` int(10) UNSIGNED DEFAULT NULL,
   `text` varchar(256) NOT NULL,
   `done` tinyint(1) NOT NULL DEFAULT '0',
+  `email_notification` tinyint(1) DEFAULT NULL,
+  `email_notification_status` tinyint(1) DEFAULT NULL,
+  `telegram_notification` tinyint(1) DEFAULT NULL,
+  `telegram_notification_status` tinyint(1) DEFAULT NULL,
+  `notification_datetime` datetime DEFAULT NULL,
   `date_updated` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -58,6 +63,8 @@ CREATE TABLE `user` (
   `email` varchar(128) DEFAULT NULL,
   `password` varchar(40) DEFAULT NULL,
   `token` varchar(160) DEFAULT NULL,
+  `telegram_user_id` int(11) DEFAULT NULL,
+  `telegram_chat_id` int(11) DEFAULT NULL,
   `date_updated` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -94,12 +101,12 @@ ALTER TABLE `user`
 -- AUTO_INCREMENT for table `list`
 --
 ALTER TABLE `list`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=58;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
 --
 -- AUTO_INCREMENT for table `note`
 --
 ALTER TABLE `note`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=99;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
 --
 -- AUTO_INCREMENT for table `user`
 --
